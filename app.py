@@ -1,8 +1,10 @@
 """sql-database and console interface"""
 from sqlite3 import connect
 from os.path import isfile
-from re import match, sub, split, search
+from re import sub, split, search
 from datetime import datetime
+from vk_module import vk_search
+ACCESS_TOKEN = "6b1a05036b1a05036b1a0503f26b7617c866b1a6b1a0503365d30197ee8c42a32c46815"
 
 def db_connect():
     """making db var and cursor"""
@@ -18,7 +20,7 @@ def create_db(inner_conn, inner_cursor):
     inner_cursor.execute("""CREATE TABLE resources
                     (__id_request integer, __date_time text, __platform text, __link text)
                     """)
-    inner_cursor.execute("""CREATE TABLE references
+    inner_cursor.execute("""CREATE TABLE reference
                     (__date_time text, __platform text, __name_tag text, __content_message text)
                     """)
     inner_conn.commit()
@@ -63,8 +65,6 @@ def input_tags(inner_conn, inner_cursor, tags):
                 data.append((__id, now, tag))
         inner_cursor.executemany("""INSERT INTO tags VALUES (?, ?, ?)""", data)
     inner_conn.commit()
-    #вывод
-    print('Done!')
 
 def input_resources(inner_conn, inner_cursor, links):
     """entering resources into db"""
@@ -96,8 +96,29 @@ def input_resources(inner_conn, inner_cursor, links):
                 data.append((__id, now, platform, link))
         inner_cursor.executemany("""INSERT INTO resources VALUES (?, ?, ?, ?)""", data)
     inner_conn.commit()
-    #вывод
-    print('Done!')
+
+def from_vk(inner_conn, inner_cursor, token):
+    """search tags in vk"""
+    #объявление переменных
+    saved_links = []
+    saved_tags = []
+    #чтение всех ссылок vk
+    inner_cursor.execute("""SELECT * FROM resources""")
+    rows = inner_cursor.fetchall()
+    for row in rows:
+        if row[2] == 'VK':
+            saved_links.append(row[3])
+    #чтение всех тегов
+    inner_cursor.execute("""SELECT __name_tag FROM tags""")
+    rows = inner_cursor.fetchall()
+    for tag in rows:
+        saved_tags.append(tag[0])
+    #поиск на странице и запись в бд
+    for tag in saved_tags:
+        for link in saved_links:
+            data = vk_search(tag, link, token)
+            inner_cursor.executemany("""INSERT INTO reference VALUES (?, ?, ?, ?)""", data)
+    inner_conn.commit()
 
 if __name__ == '__main__':
     #подключение к бд (и её создание)
@@ -107,19 +128,14 @@ if __name__ == '__main__':
     else:
         CONN, CURSOR = db_connect()
 
-    while True:
-        INPUT_STRING = input("Command: ")
-        INPUT_STRING = sub(" ", "", INPUT_STRING)
-        RESULT = match(r"input_tags:", INPUT_STRING)
-        if RESULT:
-            INPUT_STRING = INPUT_STRING[RESULT.end():]
-            INPUT_TAGS = split(r',', INPUT_STRING)
-            input_tags(CONN, CURSOR, INPUT_TAGS)
-        else:
-            RESULT = match(r"input_resources:", INPUT_STRING)
-            if RESULT:
-                INPUT_STRING = INPUT_STRING[RESULT.end():]
-                INPUT_LINKS = split(r',', INPUT_STRING)
-                input_resources(CONN, CURSOR, INPUT_LINKS)
-            else:
-                print('This command is not supported.')
+    INPUT_STRING = input("input_all_tags: ")
+    INPUT_STRING = sub(" ", "", INPUT_STRING)
+    INPUT_TAGS = split(r',', INPUT_STRING)
+    input_tags(CONN, CURSOR, INPUT_TAGS)
+    INPUT_STRING = input("input_all_resources: ")
+    INPUT_STRING = sub(" ", "", INPUT_STRING)
+    INPUT_LINKS = split(r',', INPUT_STRING)
+    input_resources(CONN, CURSOR, INPUT_LINKS)
+
+    from_vk(CONN, CURSOR, ACCESS_TOKEN)
+    print('Done!')
