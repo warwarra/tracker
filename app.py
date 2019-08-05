@@ -4,7 +4,7 @@ from os.path import isfile
 from re import sub, split, search
 from datetime import datetime
 from vk_module import vk_search
-ACCESS_TOKEN = "6b1a05036b1a05036b1a0503f26b7617c866b1a6b1a0503365d30197ee8c42a32c46815"
+ACCESS_TOKEN = "/your_token/"
 
 def db_connect():
     """making db var and cursor"""
